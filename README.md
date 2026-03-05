@@ -1,12 +1,9 @@
 # Resistor Sorter Machine (ENSC 351)
 
-An automated resistor-sorting machine that uses a Raspberry Pi camera + a Roboflow-hosted YOLOv8 model to read resistor color bands, decode the resistance value, and command an Arduino (with CNC shield) to rotate a bin carousel and drop the resistor into the correct bin.
+This is my project breakdwn for an automated resistor-sorting machine that uses a Raspberry Pi camera & a  YOLOv8 model to read resistor color bands, decode the resistance value, and command an Arduino (with CNC shield) to rotate a bin carousel and drop the resistor into the correct bin.
 
-**Team:** Isaiah King • Mete Balci • Yuginda Ranawaka • Alex Ungureanu
 
----
-
-## Table of Contents
+## Table of Contents / TLDR just skip to whatever you are looking for
 - [Demo workflow](#demo-workflow)
 - [How it works](#how-it-works)
 - [Repo layout](#repo-layout)
@@ -27,10 +24,11 @@ An automated resistor-sorting machine that uses a Raspberry Pi camera + a Robofl
 ---
 
 ## Demo workflow
+this is a breakdown of what a full runthrough of the project is like:
 1. Place **one resistor** on the top viewing platform.
 2. Run `main.py` on the Raspberry Pi.
 3. The Pi captures an image, sends it to Roboflow for inference, decodes the value, and selects a bin.
-4. The Pi sends serial commands to the Arduino:
+4. The Pi sends serial commands to the Arduino and does:
    - rotate to bin
    - open servo (drop)
    - close servo
@@ -42,12 +40,12 @@ An automated resistor-sorting machine that uses a Raspberry Pi camera + a Robofl
 
 ### Raspberry Pi (Python)
 - Captures a frame using `rpicam-jpeg`
-- Uploads the image to Roboflow (YOLOv8 hosted model)
-- Sorts detected bands left-to-right by X-position
-- If **gold** appears first, assumes the resistor is flipped and reverses the band list
+- Uploads the image to Roboflow (the YOLOv8 hosted model)
+- Sorts detected bands left-to-right by X-position --> so orientation does not matter
+- IE: If gold appears first, assumes the resistor is flipped and reverses the band list
 - Decodes the resistor value:
-  - 4-band logic: **two digits + multiplier** (tolerance is optional)
-- Maps the resistance value to a **bin index**
+  - 4-band logic: two digits + multiplier (tolerance is optional)
+- Maps the resistance value to a bin index
 - Sends commands to Arduino over USB serial
 
 ### Arduino (C++ / .ino)
@@ -74,50 +72,46 @@ An automated resistor-sorting machine that uses a Raspberry Pi camera + a Robofl
 ---
 
 ## Hardware
-Typical setup:
-- Raspberry Pi 5 (or similar) + camera module
-- Arduino (with CNC shield + stepper driver modules)
-- Stepper motor (bin carousel)
-- Servo motor (drop mechanism)
-- External motor power supply (for CNC shield / stepper)
-- Pi power adapter (stable 5V supply)
-- 3D-printed frame + bin carousel + drop chute
+this is the minimal list for parts:
+- Raspberry Pi 5 (or similar) + camera module --> ideally v3 but v2 will work but you will need to adjust the camera focal length
+- Arduino (with CNC shield + stepper driver modules) --> CNC sheild is required for the larger stepper, you can use a smaller steppr if your print is light
+- Stepper motor (for bin carousel)
+- Servo motor (for drop mechanism)
+- External motor power supply & Pi adapter (for CNC shield / stepper) 
+- 3D-printed frame + bin carousel + drop chute --> infill roughly 15% --> lighter is better, less momentum misalignment if your rotation speed is high
 
 ---
 
 ## Software requirements
-- Raspberry Pi OS (or Linux) with **Python 3**
+- Raspberry Pi OS (or Linux) with Python 3
 - Arduino IDE (or equivalent) for uploading `.ino`
-- Internet access (Roboflow hosted inference)
 - Packages:
   - `requests`
   - `pyserial`
 - Camera tools:
-  - `libcamera-apps` (provides `rpicam-hello`, `rpicam-jpeg`)
+  - `libcamera-apps` ( this provides `rpicam-hello`, `rpicam-jpeg` to the cam)
 
 ---
 
 ## Setup
 
-### 1) Mechanical bin alignment (REQUIRED)
-Before sorting, align the bins to the correct reset position:
-
+### 1) Mechanical bin alignment (CHECK THIS AFTER EVERY RUN)
+Before sorting, align the bins to the correct reset position 
 - Flip the base + bin assembly and align the numbers so:
-  - **`0` on the bin layer** lines up with **`0` on the outer base**
-- This is the **reset position** the machine returns to after every sort cycle.
-
-If this alignment is off, bin selections will be wrong.
+  - `0` on the bin layer lines up with `0` on the outer base
+This is the reset position the machine returns to after every sort cycle.
+so if this alignment is off, bin selections will be wrong.
 
 ---
 
 ### 2) Arduino firmware
-1. Open `stepper_servo_controller.ino` in **Arduino IDE**
-2. Select the correct **Board** + **Port**
+1. Open `stepper_servo_controller.ino` in Arduino IDE
+2. Select the correct Board + Port
 3. Upload the sketch
 4. Connect CNC shield + stepper driver modules
-5. Provide external motor power (do **not** rely on USB alone for motors)
+5. Provide external motor power ( USB alone is not enough for larger motors, check your motors before connecting!!)
 
-Optional quick check:
+Optional check:
 - Open Serial Monitor (using the sketch’s baud rate) to confirm the Arduino is running.
 
 ---
@@ -125,6 +119,7 @@ Optional quick check:
 ### 3) Raspberry Pi dependencies
 
 #### Install camera tools
+run these commands to set up the Pi ( do this first or your cam will not connect properly )
 ```bash
 sudo apt update
 sudo apt install -y libcamera-apps
@@ -175,10 +170,10 @@ rpicam-hello --preview -t 0
 ```
 
 Tips:
-- Center camera on the resistor platform
+- Center camera on the resistor platform -
 - Ensure bands are not shadowed or reflective
-- Adjust focus if needed (carefully rotate lens)
-- Use consistent, diffuse lighting
+- If you are using V2 cam check the focal length if applicable (carefully rotate lens)
+- Check the cam to ensure lighting is strong enough & resistor is in plain view
 
 ---
 
@@ -193,7 +188,7 @@ Expected behavior:
 - Terminal prints detected band colors
 - Terminal prints decoded resistance value (ohms)
 - Terminal prints the selected bin number
-- Carousel rotates → servo drops resistor → servo closes → carousel returns to **bin 0**
+- Carousel rotates → servo drops resistor → servo closes → carousel returns to bin 0
 
 ---
 
@@ -205,14 +200,14 @@ The sorter maps resistance values into bins using:
 - `NUM_VALUE_BINS = 11`
 
 So:
-- Bin `1` covers **1–3000 Ω**
-- Bin `2` covers **3001–6000 Ω**
+- Bin `1` covers 1–3000 
+- Bin `2` covers 3001–6000 Ω
 - ...
-- Bin `11` covers **30001–33000 Ω**
-- Anything `<= 0` or `> 33000 Ω` goes to **bin 0**
+- Bin `11` covers 30001–33000 Ω
+- Anything `<= 0` or `> 33000 Ω` goes to bin 0 ( trash / unreadable )
 
 Example:
-- A **12kΩ** resistor maps to **bin 4**
+- A 12kΩ resistor maps to bin 4 ...
 
 ---
 
@@ -237,13 +232,13 @@ Typical cycle:
 
 ## Troubleshooting
 
-### Bin goes to the wrong position
-- Re-check **mechanical alignment** (0-to-0 reset)
-- Mechanical play can cause drift; adjust steps/angles in the Arduino sketch if needed
+###  If the bin goes to the wrong position
+- Re-check mechanical alignment (0 on the base alaigns with 0 on the bins)
+- Momentum can cause drift; adjust steps/angles in the Arduino sketch if needed
 
 ### Detection is inconsistent
-- Improve lighting (diffuse / even)
-- Ensure resistor is centered and bands are clearly visible
+- Improve lighting 
+- Ensure resistor is centered and bands are clearly visible 
 - Reduce glare and shadows
 - Re-focus camera lens
 
